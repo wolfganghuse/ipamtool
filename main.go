@@ -2,12 +2,15 @@ package main
 
 import (
 
+	"log"
+	"io/ioutil"
+
 	"fmt"
 	"os"
 
 	"github.com/google/uuid"
 	//networkingconfig "github.com/nutanix-core/ntnx-api-go-sdk-internal/networking_go_sdk/v16/models/networking/v4/config"
-	networking "github.com/nutanix/ntnx-api-golang-clients/networking-go-client/v4/client"
+	"github.com/nutanix/ntnx-api-golang-clients/networking-go-client/v4/models/networking/v4/config"
 )
 
 /* Tag names to load configuration from environment variable */
@@ -20,7 +23,9 @@ const (
 var serviceConfig Configuration
 
 func main() {
-	//for v4 Client Connection
+
+	log.SetOutput(ioutil.Discard)
+	log.SetFlags(0)
 
 	setConfig()
 	//fmt.Printf("Service configuration : %+v\n ", serviceConfig)
@@ -68,11 +73,11 @@ func main() {
 		fmt.Println("SUCCESS")
 	
 	case "fetch":
-		response, err := nutanixClient.SubnetReserveUnreserveIPAPIClient.FetchSubnetAddressAssignments(serviceConfig.SubnetUUID)   
+		response, err := nutanixClient.SubnetReserveUnreserveIPAPIClient.FetchSubnetAddressAssignments(&serviceConfig.SubnetUUID)   
 		if err != nil {
 			panic (err)
 		} 
-		for _, data := range response.GetData().([]networkingconfig.AddressAssignmentInfo) {
+		for _, data := range response.GetData().([]config.AddressAssignmentInfo) {
 			if *data.IsReserved {
 				fmt.Printf("%s - %s\n",*data.IpAddress.Ipv4.Value, *data.ReservedDetails.ClientContext)
 			}
