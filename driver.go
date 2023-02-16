@@ -6,20 +6,25 @@ import (
 	"encoding/json"
 	"fmt"
 
-	networkingapi "github.com/nutanix-core/ntnx-api-go-sdk-internal/networking_go_sdk/v16/api"
-	networkingconfig "github.com/nutanix-core/ntnx-api-go-sdk-internal/networking_go_sdk/v16/models/networking/v4/config"
-	prism "github.com/nutanix-core/ntnx-api-go-sdk-internal/networking_go_sdk/v16/models/prism/v4/config"
-	tasksapi "github.com/nutanix-core/ntnx-api-go-sdk-internal/tasks_go_sdk/v16/api"
-
+	"github.com/nutanix/ntnx-api-golang-clients/networking-go-client/v4/api"
+	"github.com/nutanix/ntnx-api-golang-clients/networking-go-client/v4/client"
+	"github.com/nutanix/ntnx-api-golang-clients/networking-go-client/v4/models/networking/v4/config"
+	common "github.com/nutanix/ntnx-api-golang-clients/networking-go-client/v4/models/common/v1/config"
+	prism "github.com/nutanix/ntnx-api-golang-clients/networking-go-client/v4/models/prism/v4/config"
+	prismapi "github.com/nutanix/ntnx-api-golang-clients/prism-go-client/v4/api"
+	prismconfig "github.com/nutanix/ntnx-api-golang-clients/prism-go-client/v4/models/prism/v4/config"
+	//networkingapi "github.com/nutanix-core/ntnx-api-go-sdk-internal/networking_go_sdk/v16/api"
+	//networkingconfig "github.com/nutanix-core/ntnx-api-go-sdk-internal/networking_go_sdk/v16/models/networking/v4/config"
+	//prism "github.com/nutanix-core/ntnx-api-go-sdk-internal/networking_go_sdk/v16/models/prism/v4/config"
+	//tasksapi "github.com/nutanix-core/ntnx-api-go-sdk-internal/tasks_go_sdk/v16/api"
 	//"github.com/nutanix-core/ntnx-api-go-sdk-internal/tasks_go_sdk/v16/models/common/v1/config"
-	tasksprism "github.com/nutanix-core/ntnx-api-go-sdk-internal/tasks_go_sdk/v16/models/prism/v4/config"
-
-	common "github.com/nutanix-core/ntnx-api-go-sdk-internal/networking_go_sdk/v16/models/common/v1/config"
+	//tasksprism "github.com/nutanix-core/ntnx-api-go-sdk-internal/tasks_go_sdk/v16/models/prism/v4/config"
+	//common "github.com/nutanix-core/ntnx-api-go-sdk-internal/networking_go_sdk/v16/models/common/v1/config"
 )
 
 // Configuration keeps all settings together
 type Configuration struct {
-	Port     	string `env:"NUTANIX_PORT" default:"9440"`
+	Port     	int `env:"NUTANIX_PORT" default:9440`
 	Prism	    string `env:"NUTANIX_ENDPOINT" default:"10.48.38.43"`
 	User    	string `env:"NUTANIX_USER" default:"admin"`
 	Password	string `env:"NUTANIX_PASSWORD" default:"Nutanix.123"`
@@ -34,53 +39,65 @@ type reservedIP struct {
 
 //V4NutanixClient contains API Objects
 type V4NutanixClient struct {
-	SubnetReserveUnreserveIPAPIClient *networkingapi.SubnetReserveUnreserveIpApi
-	TasksAPIClient *tasksapi.TaskApi
-	SubnetIPAPIClient *networkingapi.SubnetApi
+	APIClientInstance *client.ApiClient
+	SubnetReserveUnreserveIPAPIClient *api.SubnetReserveUnreserveIpApi
+	TasksAPIClient prismapi.TaskApi
+	//SubnetIPAPIClient *networkingapi.SubnetApi
 }
 
 //Connect to v4 API
 func Connect(c Configuration) (n V4NutanixClient, err error){
-	n.SubnetReserveUnreserveIPAPIClient = networkingapi.NewSubnetReserveUnreserveIpApi()
-	n.SubnetReserveUnreserveIPAPIClient.ApiClient.BasePath = "https://" + c.Prism + ":" + c.Port
-	n.SubnetReserveUnreserveIPAPIClient.ApiClient.SetVerifySSL(!stob(c.Insecure))
-	n.SubnetReserveUnreserveIPAPIClient.ApiClient.Debug = stob(c.Debug)
-	n.SubnetReserveUnreserveIPAPIClient.ApiClient.DefaultHeaders = map[string]string{
-		"Authorization": fmt.Sprintf("Basic %s",
-			b64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", c.User, c.Password)))),
-	}
+	n.APIClientInstance = client.NewApiClient()
+	n.APIClientInstance.Host = c.Prism // IPv4/IPv6 address or FQDN of the cluster
+	n.APIClientInstance.Port = c.Port // Port to which to connect to
+	n.APIClientInstance.Username = c.User // UserName to connect to the cluster
+	n.APIClientInstance.Password = c.Password // Password to connect to the cluster
 
 
-	n.TasksAPIClient = tasksapi.NewTaskApi()
-	n.TasksAPIClient.ApiClient.BasePath = "https://" + c.Prism + ":" + c.Port
-	n.TasksAPIClient.ApiClient.SetVerifySSL(!stob(c.Insecure))
-	n.TasksAPIClient.ApiClient.Debug = stob(c.Debug)
-	n.TasksAPIClient.ApiClient.DefaultHeaders = map[string]string{
-		"Authorization": fmt.Sprintf("Basic %s",
-			b64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", c.User, c.Password)))),
-	}
+	n.SubnetReserveUnreserveIPAPIClient = api.NewSubnetReserveUnreserveIpApi(n.APIClientInstance)
+
+	
+	// n.SubnetReserveUnreserveIPAPIClient = networkingapi.NewSubnetReserveUnreserveIpApi()
+	// n.SubnetReserveUnreserveIPAPIClient.ApiClient.BasePath = "https://" + c.Prism + ":" + c.Port
+	// n.SubnetReserveUnreserveIPAPIClient.ApiClient.SetVerifySSL(!stob(c.Insecure))
+	// n.SubnetReserveUnreserveIPAPIClient.ApiClient.Debug = stob(c.Debug)
+	// n.SubnetReserveUnreserveIPAPIClient.ApiClient.DefaultHeaders = map[string]string{
+	// 	"Authorization": fmt.Sprintf("Basic %s",
+	// 		b64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", c.User, c.Password)))),
+	// }
+
+
+	// n.TasksAPIClient = tasksapi.NewTaskApi()
+	// n.TasksAPIClient.ApiClient.BasePath = "https://" + c.Prism + ":" + c.Port
+	// n.TasksAPIClient.ApiClient.SetVerifySSL(!stob(c.Insecure))
+	// n.TasksAPIClient.ApiClient.Debug = stob(c.Debug)
+	// n.TasksAPIClient.ApiClient.DefaultHeaders = map[string]string{
+	// 	"Authorization": fmt.Sprintf("Basic %s",
+	// 		b64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", c.User, c.Password)))),
+	// }
  
-	n.SubnetIPAPIClient = networkingapi.NewSubnetApi()
-	n.SubnetIPAPIClient.ApiClient.BasePath = "https://" + c.Prism + ":" + c.Port
-	n.SubnetIPAPIClient.ApiClient.SetVerifySSL(!stob(c.Insecure))
-	n.SubnetIPAPIClient.ApiClient.Debug = stob(c.Debug)
-	n.SubnetIPAPIClient.ApiClient.DefaultHeaders = map[string]string{
-		"Authorization": fmt.Sprintf("Basic %s",
-			b64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", c.User, c.Password)))),
-	}
+	// n.SubnetIPAPIClient = networkingapi.NewSubnetApi()
+	// n.SubnetIPAPIClient.ApiClient.BasePath = "https://" + c.Prism + ":" + c.Port
+	// n.SubnetIPAPIClient.ApiClient.SetVerifySSL(!stob(c.Insecure))
+	// n.SubnetIPAPIClient.ApiClient.Debug = stob(c.Debug)
+	// n.SubnetIPAPIClient.ApiClient.DefaultHeaders = map[string]string{
+	// 	"Authorization": fmt.Sprintf("Basic %s",
+	// 		b64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", c.User, c.Password)))),
+	// }
 	
 	return n, nil
 }
 
 // ReserveIP returns single IP, needs Subnet UUID and ClientContext
-func ReserveIP(n V4NutanixClient, SubnetUUID string, ClientContext string) (*common.IPAddress, error) {
+func ReserveIP(n V4NutanixClient, SubnetUUID string, ClientContext string) (common.IPAddress, error) {
 	var ClientCount int64 = 1
-	ipReserveInput:=networkingconfig.NewIpReserveInput()
+	ipReserveInput:=*config.NewIpReserveInput()
 	ipReserveInput.ClientContext = &ClientContext
 	ipReserveInput.Count = &ClientCount
-	ipReserveInput.ReserveType = networkingconfig.RESERVETYPE_IP_ADDRESS_COUNT.Ref()
+	ipReserveInput.ReserveType = config.RESERVETYPE_IP_ADDRESS_COUNT.Ref()
 
-	response, err := n.SubnetReserveUnreserveIPAPIClient.ReserveIps(ipReserveInput, SubnetUUID)   
+	//response, err := n.SubnetReserveUnreserveIPAPIClient.ReserveIps(ipReserveInput, SubnetUUID)   
+	response, err := n.SubnetReserveUnreserveIPAPIClient.ReserveIps(&ipReserveInput, &SubnetUUID)   
 	if err != nil {
 		return nil , err
 	} 
@@ -93,7 +110,7 @@ func ReserveIP(n V4NutanixClient, SubnetUUID string, ClientContext string) (*com
 
 	ReservedIPv4:=common.NewIPv4Address()
 	ipResponse:=reservedIP{}
-	output := responsetask.GetData().(tasksprism.Task)
+	output := responsetask.GetData().(prismconfig.Task)
 	for _ ,details:= range output.CompletionDetails {
 		s:=details.Value.GetValue().(string)
 		json.Unmarshal([]byte(s), &ipResponse)
