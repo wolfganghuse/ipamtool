@@ -1,22 +1,16 @@
 package main
 
 import (
-
-	"log"
-	"io/ioutil"
-
 	"fmt"
+	"net"
 	"os"
-
-	"github.com/google/uuid"
-	//networkingconfig "github.com/nutanix-core/ntnx-api-go-sdk-internal/networking_go_sdk/v16/models/networking/v4/config"
-	"github.com/nutanix/ntnx-api-golang-clients/networking-go-client/v4/models/networking/v4/config"
 )
 
 /* Tag names to load configuration from environment variable */
 const (
 	ENV     = "env"
 	DEFAULT = "default"
+	ClientContext = "IPAMTool"
 )
 
 /* Non-exported instance to avoid accidental overwrite */
@@ -24,11 +18,13 @@ var serviceConfig Configuration
 
 func main() {
 
-	log.SetOutput(ioutil.Discard)
-	log.SetFlags(0)
 
 	setConfig()
 	//fmt.Printf("Service configuration : %+v\n ", serviceConfig)
+	if serviceConfig.Debug=="false" {
+		os.Stderr, _ = os.Open(os.DevNull)
+	}
+
 	
 	nutanixClient, _ :=Connect(serviceConfig)
 
@@ -51,7 +47,7 @@ func main() {
     switch os.Args[1] {
 
     case "reserve":
-		ClientContext := uuid.NewString()
+		//ClientContext := uuid.NewString()
 		myIP, err:= ReserveIP(nutanixClient,serviceConfig.SubnetUUID,ClientContext)
 		if err != nil {
 			panic (err)
@@ -60,12 +56,23 @@ func main() {
 		
 
     case "unreserve":
+
+		var ReleaseContext string
+		var ipToRelease string
+
+	
 		if len(os.Args) < 3 {
-			fmt.Println("expected uuid to unreserve")
+			fmt.Println("expected IP to unreserve")
 			os.Exit(1)
 		}
-		ClientContext:= os.Args[2]
-		err:= UnreserveIP(nutanixClient,ClientContext)
+		
+		if net.ParseIP(os.Args[2]) == nil {
+			//not an IP
+			ReleaseContext=os.Args[2]
+		} else {
+			ipToRelease= os.Args[2]
+		}
+		err:= UnreserveIP(nutanixClient,ipToRelease, ReleaseContext)
 		if err != nil {
 			panic (err)
 		}		
@@ -73,14 +80,12 @@ func main() {
 		fmt.Println("SUCCESS")
 	
 	case "fetch":
-		response, err := nutanixClient.SubnetReserveUnreserveIPAPIClient.FetchSubnetAddressAssignments(&serviceConfig.SubnetUUID)   
+		IPList, err:= FetchIPList(nutanixClient,serviceConfig.SubnetUUID)
 		if err != nil {
 			panic (err)
-		} 
-		for _, data := range response.GetData().([]config.AddressAssignmentInfo) {
-			if *data.IsReserved {
-				fmt.Printf("%s - %s\n",*data.IpAddress.Ipv4.Value, *data.ReservedDetails.ClientContext)
-			}
+		}
+		for _, ipitem := range (IPList) {
+			fmt.Println(ipitem.ip, ipitem.context)
 		}
 
 	default:

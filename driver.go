@@ -2,7 +2,7 @@ package main
 
 import (
 	
-	//"github.com/golang/glog"
+
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -29,6 +29,12 @@ type Configuration struct {
 	Subnet   	string `env:"NUTANIX_SUBNET_NAME" default:"IPAM_nestedPool_2"`
 	SubnetUUID  string `env:"NUTANIX_SUBNET_UUID" default:""`
 }
+
+type IPItem struct {
+	ip string
+	context string
+}
+
 type reservedIP struct {
     IP []string      `json:"reserved_ips"`
 }
@@ -52,7 +58,10 @@ func Connect(c Configuration) (n V4NutanixClient, err error){
 	APIClientInstance.Username = c.User // UserName to connect to the cluster
 	APIClientInstance.Password = c.Password // Password to connect to the cluster
 	
-	
+	if c.Debug == "true" {
+		APIClientInstance.Debug = true
+	}
+
 	if c.Insecure=="true" {
 		APIClientInstance.SetVerifySSL(false)
 	} else {
@@ -65,7 +74,10 @@ func Connect(c Configuration) (n V4NutanixClient, err error){
 	PrismAPIClientInstance.Username = c.User // UserName to connect to the cluster
 	PrismAPIClientInstance.Password = c.Password // Password to connect to the cluster
 
-	PrismAPIClientInstance.Debug = false
+	if c.Debug == "true" {
+		PrismAPIClientInstance.Debug = true
+	}
+
 	if c.Insecure=="true" {
 		PrismAPIClientInstance.SetVerifySSL(false)
 	} else {
@@ -96,7 +108,6 @@ func ReserveIP(n V4NutanixClient, SubnetUUID string, ClientContext string) (comm
 		return *ReservedIP , err
 	} 
 	data := response.GetData().(prism.TaskReference)
-	println(data.ExtId)
 	responsetask, err:= n.TasksAPIClient.TaskGet(data.ExtId)
 	if err != nil {
 		return *ReservedIP , err
@@ -115,13 +126,23 @@ func ReserveIP(n V4NutanixClient, SubnetUUID string, ClientContext string) (comm
 }
 
 // UnreserveIP returns Err of nil if release was successful, needs Subnet UUID and ClientContext
-func UnreserveIP(n V4NutanixClient, ClientContext string) (error) {
+func UnreserveIP(n V4NutanixClient, IP string, ClientContext string) (error) {
 	IPUnreserveInput:=config.NewIpUnreserveInput()
-	IPUnreserveInput.UnreserveType= config.UNRESERVETYPE_CONTEXT.Ref()
-	IPUnreserveInput.ClientContext=&ClientContext
+
+	if ClientContext!="" {
+		IPUnreserveInput.UnreserveType= config.UNRESERVETYPE_CONTEXT.Ref()
+		IPUnreserveInput.ClientContext=&ClientContext
+	
+	} else {
+		ip:=common.NewIPAddress()
+		ip.Ipv4 = common.NewIPv4Address()
+		ip.Ipv4.Value = &IP
+		IPUnreserveInput.UnreserveType= config.UNRESERVETYPE_IP_ADDRESS_LIST.Ref()
+		IPUnreserveInput.IpAddresses = append(IPUnreserveInput.IpAddresses, *ip)
+	}
 	response, err := n.SubnetReserveUnreserveIPAPIClient.UnreserveIps(IPUnreserveInput,&serviceConfig.SubnetUUID)
 	if err != nil {
-		panic (err)
+		return err
 	}
 	data := response.GetData().(prism.TaskReference)
 	_, err = n.TasksAPIClient.TaskGet(data.ExtId)
@@ -129,6 +150,29 @@ func UnreserveIP(n V4NutanixClient, ClientContext string) (error) {
 		return err
 	}
 	return nil
+}
+
+//FetchIPList returns List of all reserved IPs in given Subnet
+func FetchIPList(n V4NutanixClient, SubnetUUID string) (IPList []IPItem, err error) {
+
+	response, err := n.SubnetReserveUnreserveIPAPIClient.FetchSubnetAddressAssignments(&serviceConfig.SubnetUUID)   
+		if err != nil {
+			return nil, err
+		}
+		
+		for _, data := range response.GetData().([]config.AddressAssignmentInfo) {
+			if *data.IsReserved {
+				var ipitem IPItem
+				ipitem.ip = *data.IpAddress.Ipv4.Value
+				if data.ReservedDetails.ClientContext != nil {
+					ipitem.context = *data.ReservedDetails.ClientContext
+				}
+				IPList = append(IPList, ipitem)
+			}
+		}
+
+		return IPList, nil
+
 }
 
 //findSubnetByName returns Subnet UUID, needs name
