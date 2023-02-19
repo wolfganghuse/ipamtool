@@ -10,7 +10,6 @@ import (
 const (
 	ENV     = "env"
 	DEFAULT = "default"
-	ClientContext = "IPAMTool"
 )
 
 /* Non-exported instance to avoid accidental overwrite */
@@ -38,7 +37,12 @@ func main() {
     switch os.Args[1] {
 
     case "reserve":
-		//ClientContext := uuid.NewString()
+		var ClientContext string
+		if len (os.Args)==3 {
+			ClientContext=os.Args[2]
+		} else {
+			ClientContext=""
+		}	
 		myIP, err:= ReserveIP(nutanixClient,ClientContext)
 		if err != nil {
 			fmt.Println(err.Error())
@@ -54,15 +58,19 @@ func main() {
 
 	
 		if len(os.Args) < 3 {
-			fmt.Println("expected IP or ClientContext to unreserve")
+			fmt.Println("expected IP and/or ClientContext to unreserve")
 			os.Exit(1)
 		}
 		
 		if net.ParseIP(os.Args[2]) == nil {
 			//not an IP
 			ReleaseContext=os.Args[2]
+
 		} else {
 			ipToRelease= os.Args[2]
+			if len(os.Args) == 4 {
+				ReleaseContext=os.Args[3]
+			}
 		}
 		err:= UnreserveIP(nutanixClient,ipToRelease, ReleaseContext)
 		if err != nil {
@@ -73,7 +81,8 @@ func main() {
 	case "fetch":
 		IPList, err:= FetchIPList(nutanixClient,serviceConfig.SubnetUUID)
 		if err != nil {
-			panic (err)
+			fmt.Println(err.Error())
+			os.Exit(1)
 		}
 		for _, ipitem := range (IPList) {
 			fmt.Println(ipitem.ip, ipitem.context)

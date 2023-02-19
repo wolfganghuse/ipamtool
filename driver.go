@@ -145,7 +145,7 @@ func ReserveIP(n V4NutanixClient, ClientContext string) (common.IPAddress, error
 func UnreserveIP(n V4NutanixClient, IP string, ClientContext string) (error) {
 	IPUnreserveInput:=config.NewIpUnreserveInput()
 
-	if ClientContext!="" {
+	if IP=="" {
 		IPUnreserveInput.UnreserveType= config.UNRESERVETYPE_CONTEXT.Ref()
 		IPUnreserveInput.ClientContext=&ClientContext
 	
@@ -154,6 +154,7 @@ func UnreserveIP(n V4NutanixClient, IP string, ClientContext string) (error) {
 		ip.Ipv4 = common.NewIPv4Address()
 		ip.Ipv4.Value = &IP
 		IPUnreserveInput.UnreserveType= config.UNRESERVETYPE_IP_ADDRESS_LIST.Ref()
+		IPUnreserveInput.ClientContext=&ClientContext
 		IPUnreserveInput.IpAddresses = append(IPUnreserveInput.IpAddresses, *ip)
 	}
 	response, err := n.SubnetReserveUnreserveIPAPIClient.UnreserveIps(IPUnreserveInput,&n.Configuration.SubnetUUID)
@@ -177,22 +178,25 @@ func UnreserveIP(n V4NutanixClient, IP string, ClientContext string) (error) {
 func FetchIPList(n V4NutanixClient, SubnetUUID string) (IPList []IPItem, err error) {
 
 	response, err := n.SubnetReserveUnreserveIPAPIClient.FetchSubnetAddressAssignments(&n.Configuration.SubnetUUID)   
-		if err != nil {
-			return nil, err
-		}
-		
-		for _, data := range response.GetData().([]config.AddressAssignmentInfo) {
-			if *data.IsReserved {
-				var ipitem IPItem
-				ipitem.ip = *data.IpAddress.Ipv4.Value
-				if data.ReservedDetails.ClientContext != nil {
-					ipitem.context = *data.ReservedDetails.ClientContext
-				}
-				IPList = append(IPList, ipitem)
-			}
-		}
+	if err != nil {
+		return nil, err
+	}
 
-		return IPList, nil
+	if (response.GetData())== nil {
+		return nil, fmt.Errorf("no reserved IPs in subnet %s",n.Configuration.SubnetUUID)
+	}
+	for _, data := range response.GetData().([]config.AddressAssignmentInfo) {
+		if *data.IsReserved {
+			var ipitem IPItem
+			ipitem.ip = *data.IpAddress.Ipv4.Value
+			if data.ReservedDetails.ClientContext != nil {
+				ipitem.context = *data.ReservedDetails.ClientContext
+			}
+			IPList = append(IPList, ipitem)
+		}
+	}
+
+	return IPList, nil
 
 }
 
