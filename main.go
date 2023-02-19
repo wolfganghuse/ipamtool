@@ -28,19 +28,10 @@ func main() {
 	
 	nutanixClient, _ :=Connect(serviceConfig)
 
-	//Resolve Subnet Name to UUID if necessary
-	if serviceConfig.SubnetUUID=="" {
 	
-		Subnet, err:=findSubnetByName(nutanixClient,serviceConfig.Subnet)
-		if err != nil {
-			panic (err)
-		}
-		serviceConfig.SubnetUUID=*Subnet.ExtId
-	}
-
 	// Check commandline-args
 	if len(os.Args) < 2 {
-        fmt.Println("expected 'reserve', 'unreserve uuid' or 'fetch'")
+        fmt.Println("expected 'reserve', 'unreserve IP / ClientContext' or 'fetch'")
         os.Exit(1)
     }
 
@@ -48,9 +39,10 @@ func main() {
 
     case "reserve":
 		//ClientContext := uuid.NewString()
-		myIP, err:= ReserveIP(nutanixClient,serviceConfig.SubnetUUID,ClientContext)
+		myIP, err:= ReserveIP(nutanixClient,ClientContext)
 		if err != nil {
-			panic (err)
+			fmt.Println(err.Error())
+			os.Exit(1)
 		}
 		fmt.Println(*myIP.Ipv4.Value)
 		
@@ -62,7 +54,7 @@ func main() {
 
 	
 		if len(os.Args) < 3 {
-			fmt.Println("expected IP to unreserve")
+			fmt.Println("expected IP or ClientContext to unreserve")
 			os.Exit(1)
 		}
 		
@@ -74,10 +66,9 @@ func main() {
 		}
 		err:= UnreserveIP(nutanixClient,ipToRelease, ReleaseContext)
 		if err != nil {
-			panic (err)
-		}		
-		//output := responsetask.GetData().(tasksprism.Task)
-		fmt.Println("SUCCESS")
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
 	
 	case "fetch":
 		IPList, err:= FetchIPList(nutanixClient,serviceConfig.SubnetUUID)
