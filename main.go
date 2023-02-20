@@ -18,7 +18,13 @@ var serviceConfig Configuration
 func main() {
 
 
-	setConfig()
+	err:= setConfig()
+	if err!=nil {
+        fmt.Println(err.Error())
+		os.Exit(1)
+    }
+
+
 	//fmt.Printf("Service configuration : %+v\n ", serviceConfig)
 	if serviceConfig.Debug=="false" {
 		os.Stderr, _ = os.Open(os.DevNull)

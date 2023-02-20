@@ -103,6 +103,10 @@ func Connect(c Configuration) (n V4NutanixClient, err error){
 	return n, nil
 }
 
+// HandleTask returns Task Status
+// func HandleTask(n V4NutanixClient, TaskID *string) (error) {
+
+// }
 // ReserveIP returns single IP, needs Subnet UUID and ClientContext
 func ReserveIP(n V4NutanixClient, ClientContext string) (common.IPAddress, error) {
 	var ClientCount int64 = 1
