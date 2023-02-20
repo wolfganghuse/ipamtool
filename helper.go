@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"reflect"
     "os"
-	//"fmt"
+	"fmt"
 )
 // string to bool.
 func stob(s string) bool {
@@ -15,7 +15,7 @@ func stob(s string) bool {
     return i
 }
 
-func setConfig() {
+func setConfig() (err error) {
     // ValueOf returns a Value representing the run-time data
     v := reflect.ValueOf(serviceConfig)
     for i := 0; i < v.NumField(); i++ {
@@ -30,11 +30,18 @@ func setConfig() {
         //a := reflect.Indirect(reflect.ValueOf(serviceConfig))
         EnvVar, Info := loadFromEnv(tag, defaultTag)
         if Info != "" {
-             //fmt.Println("Missing environment configuration for '" + a.Type().Field(i).Name + "', Loading default setting!")
+            if  v.Type().Field(i).Tag.Get(DEFAULT)!="" {
+                fmt.Println("Missing environment configuration for '" + v.Type().Field(i).Name + "', please set ENV Variable " +  v.Type().Field(i).Tag.Get(ENV) + ". Using default value " +  v.Type().Field(i).Tag.Get(DEFAULT))
+            } else {
+                fmt.Println("Missing environment configuration for '" + v.Type().Field(i).Name + "', please set ENV Variable " +  v.Type().Field(i).Tag.Get(ENV))
+                err=fmt.Errorf("not all ENV variables set")
+            }
         }
         /* Set the value in the environment variable to the respective struct field */
         reflect.ValueOf(&serviceConfig).Elem().Field(i).SetString(EnvVar)
+
     }
+    return err
 }
 
 func loadFromEnv(tag string, defaultTag string) (string, string) {

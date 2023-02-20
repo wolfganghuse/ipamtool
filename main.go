@@ -1,19 +1,9 @@
 package main
 
 import (
-
 	"fmt"
+	"net"
 	"os"
-
-	//"github.com/golang/glog"
-	"github.com/google/uuid"
-	//networkingapi "github.com/nutanix-core/ntnx-api-go-sdk-internal/networking_go_sdk/v16/api"
-	//tasksapi "github.com/nutanix-core/ntnx-api-go-sdk-internal/tasks_go_sdk/v16/api"
-	//tasksprism "github.com/nutanix-core/ntnx-api-go-sdk-internal/tasks_go_sdk/v16/models/prism/v4/config"
-	//prism "github.com/nutanix-core/ntnx-api-go-sdk-internal/networking_go_sdk/v16/models/prism/v4/config"
-	networkingconfig "github.com/nutanix-core/ntnx-api-go-sdk-internal/networking_go_sdk/v16/models/networking/v4/config"
-	// common "github.com/nutanix-core/ntnx-api-go-sdk-internal/networking_go_sdk/v16/models/common/v1/config"
-	//"github.com/nutanix-core/ntnx-api-go-sdk-internal/networking_go_sdk/v16/models/common/v1/response"
 )
 
 /* Tag names to load configuration from environment variable */
@@ -26,62 +16,82 @@ const (
 var serviceConfig Configuration
 
 func main() {
-	//for v4 Client Connection
 
-	setConfig()
+
+	err:= setConfig()
+	if err!=nil {
+        fmt.Println(err.Error())
+		os.Exit(1)
+    }
+
+
 	//fmt.Printf("Service configuration : %+v\n ", serviceConfig)
+	if serviceConfig.Debug=="false" {
+		os.Stderr, _ = os.Open(os.DevNull)
+	}
+
 	
 	nutanixClient, _ :=Connect(serviceConfig)
 
-	//Resolve Subnet Name to UUID if necessary
-	if serviceConfig.SubnetUUID=="" {
 	
-		Subnet, err:=findSubnetByName(nutanixClient,serviceConfig.Subnet)
-		if err != nil {
-			panic (err)
-		}
-		serviceConfig.SubnetUUID=*Subnet.ExtId
-	}
-
 	// Check commandline-args
 	if len(os.Args) < 2 {
-        fmt.Println("expected 'reserve', 'unreserve uuid' or 'fetch'")
+        fmt.Println("expected 'reserve', 'unreserve IP / ClientContext' or 'fetch'")
         os.Exit(1)
     }
 
     switch os.Args[1] {
 
     case "reserve":
-		ClientContext := uuid.NewString()
-		myIP, err:= ReserveIP(nutanixClient,serviceConfig.SubnetUUID,ClientContext)
+		var ClientContext string
+		if len (os.Args)==3 {
+			ClientContext=os.Args[2]
+		} else {
+			ClientContext=""
+		}	
+		myIP, err:= ReserveIP(nutanixClient,ClientContext)
 		if err != nil {
-			panic (err)
+			fmt.Println(err.Error())
+			os.Exit(1)
 		}
 		fmt.Println(*myIP.Ipv4.Value)
 		
 
     case "unreserve":
+
+		var ReleaseContext string
+		var ipToRelease string
+
+	
 		if len(os.Args) < 3 {
-			fmt.Println("expected uuid to unreserve")
+			fmt.Println("expected IP and/or ClientContext to unreserve")
 			os.Exit(1)
 		}
-		ClientContext:= os.Args[2]
-		err:= UnreserveIP(nutanixClient,ClientContext)
+		
+		if net.ParseIP(os.Args[2]) == nil {
+			//not an IP
+			ReleaseContext=os.Args[2]
+
+		} else {
+			ipToRelease= os.Args[2]
+			if len(os.Args) == 4 {
+				ReleaseContext=os.Args[3]
+			}
+		}
+		err:= UnreserveIP(nutanixClient,ipToRelease, ReleaseContext)
 		if err != nil {
-			panic (err)
-		}		
-		//output := responsetask.GetData().(tasksprism.Task)
-		fmt.Println("SUCCESS")
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
 	
 	case "fetch":
-		response, err := nutanixClient.SubnetReserveUnreserveIPAPIClient.FetchSubnetAddressAssignments(serviceConfig.SubnetUUID)   
+		IPList, err:= FetchIPList(nutanixClient,serviceConfig.SubnetUUID)
 		if err != nil {
-			panic (err)
-		} 
-		for _, data := range response.GetData().([]networkingconfig.AddressAssignmentInfo) {
-			if *data.IsReserved {
-				fmt.Printf("%s - %s\n",*data.IpAddress.Ipv4.Value, *data.ReservedDetails.ClientContext)
-			}
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
+		for _, ipitem := range (IPList) {
+			fmt.Println(ipitem.ip, ipitem.context)
 		}
 
 	default:
