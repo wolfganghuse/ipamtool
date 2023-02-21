@@ -20,14 +20,14 @@ import (
 
 // Configuration keeps all settings together
 type Configuration struct {
-	Port     	string `env:"NUTANIX_PORT" default:"9440"`
-	Prism	    string `env:"NUTANIX_ENDPOINT" default:""`
-	User    	string `env:"NUTANIX_USER" default:"admin"`
-	Password	string `env:"NUTANIX_PASSWORD" default:""`
-	Insecure 	string `env:"NUTANIX_INSECURE" default:"true"`
-	Debug    	string `env:"DEBUG" default:"false"`
-	Subnet   	string `env:"NUTANIX_SUBNET_NAME" default:""`
-	SubnetUUID  string `env:"NUTANIX_SUBNET_UUID" default:""`
+	Port     	string `env:"NUTANIX_PORT" default:"9440" mandantory:"false"`
+	Prism	    string `env:"NUTANIX_ENDPOINT" default:"" mandantory:"true"`
+	User    	string `env:"NUTANIX_USER" default:"admin" mandantory:"false"`
+	Password	string `env:"NUTANIX_PASSWORD" default:"" mandantory:"true" mandantory:"true"`
+	Insecure 	string `env:"NUTANIX_INSECURE" default:"true" mandantory:"false"`
+	Debug    	string `env:"DEBUG" default:"false" mandantory:"false"`
+	Subnet   	string `env:"NUTANIX_SUBNET_NAME" default:"" mandantory:"true"`
+	SubnetUUID  string `env:"NUTANIX_SUBNET_UUID" default:"" mandantory:"false"`
 }
 // IPItem contains IP Adress and ClientContext
 type IPItem struct {

@@ -8,8 +8,9 @@ import (
 
 /* Tag names to load configuration from environment variable */
 const (
-	ENV     = "env"
-	DEFAULT = "default"
+	ENV        = "env"
+	DEFAULT    = "default"
+	MANDANTORY = "mandantory"
 )
 
 /* Non-exported instance to avoid accidental overwrite */
